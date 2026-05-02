@@ -1,0 +1,26 @@
+{
+  "template_id": "TPL-002",
+  "template_name": "dynamic_spa_scraper",
+  "web_type": "DYNAMIC",
+  "tool_stack": ["playwright", "beautifulsoup4"],
+  "selectors": {
+    "container": "body",
+    "item": "div, article, li",
+    "fields": {
+      "title": {"selector": "h1, h2, h3", "type": "text"},
+      "content": {"selector": "p, .content, .description", "type": "text"},
+      "url": {"selector": "a", "attribute": "href", "type": "url"},
+      "image": {"selector": "img", "attribute": "src", "type": "url"}
+    }
+  },
+  "pagination": {
+    "type": "infinite_scroll",
+    "selector": null,
+    "max_pages": 50
+  },
+  "rate_limit": {
+    "requests_per_second": 1.0,
+    "delay_between_pages_ms": 2000
+  },
+  "headers": {}
+}

@@ -1,0 +1,26 @@
+{
+  "template_id": "TPL-004",
+  "template_name": "paginated_listing_scraper",
+  "web_type": "PAGINATED",
+  "tool_stack": ["httpx", "beautifulsoup4"],
+  "selectors": {
+    "container": "body",
+    "item": ".item, .product, .listing, .card, li",
+    "fields": {
+      "title": {"selector": "h2, h3, .title, .name", "type": "text"},
+      "price": {"selector": ".price, .cost, .amount", "type": "text", "transform": "parse_currency"},
+      "url": {"selector": "a", "attribute": "href", "type": "url"},
+      "image": {"selector": "img", "attribute": "src", "type": "url"}
+    }
+  },
+  "pagination": {
+    "type": "next_button",
+    "selector": "a.next, a[rel='next'], .pagination .next a",
+    "max_pages": 100
+  },
+  "rate_limit": {
+    "requests_per_second": 2.0,
+    "delay_between_pages_ms": 1500
+  },
+  "headers": {}
+}

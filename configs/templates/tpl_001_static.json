@@ -1,0 +1,28 @@
+{
+  "template_id": "TPL-001",
+  "template_name": "static_article_scraper",
+  "web_type": "STATIC",
+  "tool_stack": ["requests", "beautifulsoup4"],
+  "selectors": {
+    "container": "body",
+    "item": "article",
+    "fields": {
+      "title": {"selector": "h1, h2, h3", "type": "text"},
+      "content": {"selector": "p", "type": "text"},
+      "url": {"selector": "a", "attribute": "href", "type": "url"},
+      "date": {"selector": "time", "attribute": "datetime", "type": "date"}
+    }
+  },
+  "pagination": {
+    "type": "next_button",
+    "selector": "a[rel='next'], a.next, .pagination a:last-child",
+    "max_pages": 100
+  },
+  "rate_limit": {
+    "requests_per_second": 2.0,
+    "delay_between_pages_ms": 1000
+  },
+  "headers": {
+    "User-Agent": "Mozilla/5.0 (compatible; AgentCrawler/1.0)"
+  }
+}

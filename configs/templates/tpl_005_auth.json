@@ -1,0 +1,25 @@
+{
+  "template_id": "TPL-005",
+  "template_name": "authenticated_portal_scraper",
+  "web_type": "AUTHENTICATED",
+  "tool_stack": ["playwright", "beautifulsoup4"],
+  "selectors": {
+    "container": "body",
+    "item": "article, .content, .post, tr",
+    "fields": {
+      "title": {"selector": "h1, h2, h3, .title", "type": "text"},
+      "content": {"selector": "p, .body, .text", "type": "text"},
+      "url": {"selector": "a", "attribute": "href", "type": "url"}
+    }
+  },
+  "pagination": {
+    "type": "next_button",
+    "selector": "a.next, a[rel='next']",
+    "max_pages": 50
+  },
+  "rate_limit": {
+    "requests_per_second": 1.0,
+    "delay_between_pages_ms": 2000
+  },
+  "headers": {}
+}

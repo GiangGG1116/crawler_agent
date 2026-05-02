@@ -1,0 +1,3 @@
+# Proxy list — one proxy per line
+# Format: http://user:pass@host:port or socks5://host:port
+# Lines starting with # are comments

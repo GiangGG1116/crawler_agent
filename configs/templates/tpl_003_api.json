@@ -1,0 +1,27 @@
+{
+  "template_id": "TPL-003",
+  "template_name": "api_json_scraper",
+  "web_type": "API_BASED",
+  "tool_stack": ["httpx", "json"],
+  "selectors": {
+    "api": {
+      "data_path": "data",
+      "next_url_path": "next",
+      "total_path": "total",
+      "page_size": 50
+    },
+    "fields": {}
+  },
+  "pagination": {
+    "type": "page_number",
+    "url_pattern": "?page={n}",
+    "max_pages": 100
+  },
+  "rate_limit": {
+    "requests_per_second": 5.0,
+    "delay_between_pages_ms": 200
+  },
+  "headers": {
+    "Accept": "application/json"
+  }
+}

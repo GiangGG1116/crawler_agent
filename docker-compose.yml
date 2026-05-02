@@ -1,0 +1,84 @@
+version: "3.9"
+
+services:
+  # ==========================================================================
+  # MinIO — S3-Compatible Data Lake
+  # ==========================================================================
+  minio:
+    image: minio/minio:latest
+    container_name: crawler-minio
+    ports:
+      - "9000:9000"   # API
+      - "9001:9001"   # Console UI
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MinIO bucket initialization
+  minio-init:
+    image: minio/mc:latest
+    container_name: crawler-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minioadmin minioadmin;
+      mc mb --ignore-existing local/crawler-raw;
+      mc mb --ignore-existing local/crawler-clean;
+      mc mb --ignore-existing local/crawler-audit;
+      mc mb --ignore-existing local/crawler-generated;
+      echo 'Buckets created successfully';
+      "
+
+  # ==========================================================================
+  # Redis — Message Broker & Cache
+  # ==========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: crawler-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================================================
+  # Celery Worker — Async Task Processing
+  # ==========================================================================
+  celery-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: crawler-worker
+    command: celery -A src.tasks worker --loglevel=info --concurrency=4
+    depends_on:
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - MINIO_ENDPOINT=minio:9000
+    env_file:
+      - .env
+    volumes:
+      - ./generated_crawlers:/app/generated_crawlers
+
+volumes:
+  minio_data:
+  redis_data:
