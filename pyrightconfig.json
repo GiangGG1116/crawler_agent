@@ -1,0 +1,38 @@
+{
+  "executionEnvironments": [
+    {
+      "root": "services/agent-service",
+      "extraPaths": [
+        "services/agent-service/src",
+        "packages/shared-lib"
+      ]
+    },
+    {
+      "root": "services/api-gateway",
+      "extraPaths": [
+        "services/api-gateway/src",
+        "packages/shared-lib"
+      ]
+    },
+    {
+      "root": "services/crawler-service",
+      "extraPaths": [
+        "services/crawler-service/src",
+        "packages/shared-lib"
+      ]
+    },
+    {
+      "root": "services/data-processor",
+      "extraPaths": [
+        "services/data-processor/src",
+        "packages/shared-lib"
+      ]
+    },
+    {
+      "root": "packages/shared-lib",
+      "extraPaths": [
+        "packages/shared-lib"
+      ]
+    }
+  ]
+}

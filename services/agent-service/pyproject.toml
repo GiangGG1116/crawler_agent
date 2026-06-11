@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-service"
+version = "1.0.0"
+description = "Agent Service — AI-powered custom crawler generation"
+requires-python = ">=3.11"
+
+dependencies = [
+    "fastapi>=0.111.0",
+    "uvicorn[standard]>=0.29.0",
+    "httpx>=0.25.0",
+    "requests>=2.31.0",
+    "langchain>=1.0.0,<2.0.0",
+    "langchain-core>=0.2.0",
+    "langchain-anthropic>=0.1.0",
+    "langchain-openai>=0.1.0",
+    "langgraph>=1.0.0,<2.0.0",
+    "langgraph-checkpoint-redis>=0.4.0,<1.0.0",
+    "langgraph-checkpoint-sqlite>=3.0.0,<4.0.0",
+    "redis[hiredis]>=5.0.0",
+    "langfuse>=2.0.0",
+    "chromadb>=0.4.0",
+    "playwright>=1.40.0",
+    "beautifulsoup4>=4.12.0",
+    "lxml>=5.0.0",
+    "crawler-shared",
+    "tenacity>=8.2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.0.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]

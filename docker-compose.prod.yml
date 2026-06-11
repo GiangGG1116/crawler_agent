@@ -1,0 +1,109 @@
+# =============================================================================
+# Docker Compose — Agent Crawler (Production Overrides)
+# =============================================================================
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Differences from development:
+#   - No source code volume mounts (uses built images)
+#   - JSON log format for log aggregation
+#   - Production restart policies
+#   - Resource limits
+#   - No exposed infrastructure ports (only API Gateway)
+
+services:
+
+  # ── Infrastructure Overrides ───────────────────────────────────────────────
+
+  redis:
+    restart: always
+    # Don't expose Redis port in production
+    ports: !reset []
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+
+  minio:
+    restart: always
+    # Don't expose MinIO ports in production (access via internal network)
+    ports: !reset []
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.0"
+
+  postgres:
+    restart: always
+    ports: !reset []
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+
+  langfuse-server:
+    restart: always
+    # Only expose Langfuse on internal network in production
+    ports: !reset []
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+
+  # ── Application Service Overrides ──────────────────────────────────────────
+
+  api-gateway:
+    restart: always
+    environment:
+      APP_ENV: production
+      LOG_FORMAT: json
+    # Remove dev volume mount — use built image code
+    volumes: !reset []
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+
+  crawler-service:
+    restart: always
+    ports: !reset []
+    environment:
+      LOG_FORMAT: json
+    volumes: !reset []
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "2.0"
+
+  agent-service:
+    restart: always
+    ports: !reset []
+    environment:
+      APP_ENV: production
+      LOG_FORMAT: json
+    volumes: !reset
+      - agent-chroma-data:/app/chroma_data
+      - agent-generated-crawlers:/app/generated_crawlers
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: "2.0"
+
+  data-processor:
+    restart: always
+    ports: !reset []
+    environment:
+      LOG_FORMAT: json
+    volumes: !reset []
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.0"

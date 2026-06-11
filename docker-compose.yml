@@ -1,0 +1,290 @@
+# =============================================================================
+# Docker Compose — Agent Crawler (Development)
+# =============================================================================
+# Usage:
+#   docker compose up -d          # Start all services
+#   docker compose up -d redis    # Start only Redis
+#   docker compose logs -f        # Tail logs
+#   docker compose down           # Stop all
+#   docker compose down -v        # Stop + remove volumes
+
+name: agent-crawler
+
+# ── Shared healthcheck defaults ──────────────────────────────────────────────
+x-healthcheck-defaults: &healthcheck-defaults
+  interval: 30s
+  timeout: 5s
+  retries: 3
+  start_period: 10s
+
+# =============================================================================
+# Services
+# =============================================================================
+services:
+
+  # ── Infrastructure ─────────────────────────────────────────────────────────
+
+  redis:
+    image: redis:7-alpine
+    container_name: ac-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+      - ./configs/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    command: redis-server /usr/local/etc/redis/redis.conf
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "redis-cli", "ping"]
+    networks:
+      - agent-crawler-net
+
+  minio:
+    image: minio/minio:latest
+    container_name: ac-minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000"   # API
+      - "9001:9001"   # Console
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+    volumes:
+      - minio-data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      start_period: 15s
+    networks:
+      - agent-crawler-net
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: ac-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+    volumes:
+      - ./scripts/init-minio.sh:/init-minio.sh:ro
+    entrypoint: /bin/sh
+    command: /init-minio.sh
+    restart: "no"
+    networks:
+      - agent-crawler-net
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: ac-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-langfuse}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-langfuse_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-langfuse}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-langfuse}"]
+    networks:
+      - agent-crawler-net
+
+  langfuse-server:
+    image: langfuse/langfuse:2
+    container_name: ac-langfuse
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-langfuse}:${POSTGRES_PASSWORD:-langfuse_secret}@postgres:5432/${POSTGRES_DB:-langfuse}
+      NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET:-dev-secret-change-in-production}
+      SALT: ${LANGFUSE_SALT:-dev-salt-change-in-production}
+      NEXTAUTH_URL: ${LANGFUSE_NEXTAUTH_URL:-http://localhost:3000}
+      TELEMETRY_ENABLED: "true"
+      LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: "false"
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/public/health"]
+      start_period: 30s
+    networks:
+      - agent-crawler-net
+
+  # ── Application Services ───────────────────────────────────────────────────
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    container_name: ac-api-gateway
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      API_KEY: ${API_KEY:-}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      REDIS_URL: redis://redis:6379/0
+      CRAWLER_SERVICE_URL: http://crawler-service:8001
+      AGENT_SERVICE_URL: http://agent-service:8002
+      PROCESSOR_SERVICE_URL: http://data-processor:8003
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_FORMAT: ${LOG_FORMAT:-text}
+      LANGFUSE_ENABLED: ${LANGFUSE_ENABLED:-true}
+      LANGFUSE_HOST: http://langfuse-server:3000
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+    volumes:
+      - ./services/api-gateway/src:/app/src:ro  # Hot reload in dev
+    networks:
+      - agent-crawler-net
+
+  crawler-service:
+    build:
+      context: .
+      dockerfile: services/crawler-service/Dockerfile
+    container_name: ac-crawler-service
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - "8001:8001"
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      DEFAULT_RATE_LIMIT_RPS: ${DEFAULT_RATE_LIMIT_RPS:-2.0}
+      DEFAULT_MAX_PAGES: ${DEFAULT_MAX_PAGES:-100}
+      DEFAULT_MAX_RECORDS: ${DEFAULT_MAX_RECORDS:-10000}
+      DEFAULT_TIMEOUT_SECONDS: ${DEFAULT_TIMEOUT_SECONDS:-30}
+      RESPECT_ROBOTS_TXT: ${RESPECT_ROBOTS_TXT:-true}
+      PROXY_ENABLED: ${PROXY_ENABLED:-false}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_FORMAT: ${LOG_FORMAT:-text}
+      LANGFUSE_ENABLED: ${LANGFUSE_ENABLED:-true}
+      LANGFUSE_HOST: http://langfuse-server:3000
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+    volumes:
+      - ./services/crawler-service/src:/app/src:ro
+    networks:
+      - agent-crawler-net
+
+  agent-service:
+    build:
+      context: .
+      dockerfile: services/agent-service/Dockerfile
+    container_name: ac-agent-service
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - "8002:8002"
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      DEFAULT_LLM_PROVIDER: ${DEFAULT_LLM_PROVIDER:-anthropic}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-4-20250514}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o}
+      LLM_MAX_TOKENS: ${LLM_MAX_TOKENS:-4096}
+      REDIS_URL: redis://redis:6379/0
+      CHECKPOINT_BACKEND: ${CHECKPOINT_BACKEND:-sqlite}
+      AGENT_MAX_RETRIES: ${AGENT_MAX_RETRIES:-3}
+      AGENT_CODE_EXECUTION_TIMEOUT: ${AGENT_CODE_EXECUTION_TIMEOUT:-120}
+      AGENT_SANDBOX_BACKEND: ${AGENT_SANDBOX_BACKEND:-bubblewrap}
+      AGENT_SANDBOX_MEMORY_MB: ${AGENT_SANDBOX_MEMORY_MB:-512}
+      AGENT_SANDBOX_CPU_SECONDS: ${AGENT_SANDBOX_CPU_SECONDS:-120}
+      AGENT_SANDBOX_MAX_PROCESSES: ${AGENT_SANDBOX_MAX_PROCESSES:-64}
+      AGENT_MIN_FIELD_COMPLETENESS: ${AGENT_MIN_FIELD_COMPLETENESS:-0.8}
+      AGENT_GENERATED_ARTIFACT_TTL_HOURS: ${AGENT_GENERATED_ARTIFACT_TTL_HOURS:-24}
+      AGENT_ALERT_WEBHOOK_URL: ${AGENT_ALERT_WEBHOOK_URL:-}
+      DOMAIN_MEMORY_TTL_DAYS: ${DOMAIN_MEMORY_TTL_DAYS:-7}
+      ERROR_MEMORY_TTL_DAYS: ${ERROR_MEMORY_TTL_DAYS:-14}
+      HUMAN_FEEDBACK_TTL_DAYS: ${HUMAN_FEEDBACK_TTL_DAYS:-30}
+      CONVERSATION_BUFFER_SIZE: ${CONVERSATION_BUFFER_SIZE:-10}
+      CHROMA_PERSIST_DIR: /app/chroma_data
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_FORMAT: ${LOG_FORMAT:-text}
+      LANGFUSE_ENABLED: ${LANGFUSE_ENABLED:-true}
+      LANGFUSE_HOST: http://langfuse-server:3000
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+    volumes:
+      - ./services/agent-service/src:/app/src:ro
+      - agent-chroma-data:/app/chroma_data
+      - agent-generated-crawlers:/app/generated_crawlers
+    # Only the fixed setuid sandbox launcher can consume SYS_ADMIN.
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - seccomp:unconfined
+      - apparmor:unconfined
+    networks:
+      - agent-crawler-net
+
+  data-processor:
+    build:
+      context: .
+      dockerfile: services/data-processor/Dockerfile
+    container_name: ac-data-processor
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    ports:
+      - "8003:8003"
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_USE_SSL: "false"
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_FORMAT: ${LOG_FORMAT:-text}
+      LANGFUSE_ENABLED: ${LANGFUSE_ENABLED:-true}
+      LANGFUSE_HOST: http://langfuse-server:3000
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+    volumes:
+      - ./services/data-processor/src:/app/src:ro
+    networks:
+      - agent-crawler-net
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  redis-data:
+    driver: local
+  minio-data:
+    driver: local
+  postgres-data:
+    driver: local
+  agent-chroma-data:
+    driver: local
+  agent-generated-crawlers:
+    driver: local
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  agent-crawler-net:
+    driver: bridge

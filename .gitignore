@@ -1,0 +1,51 @@
+# =============================================================================
+# Agent Crawler — .gitignore
+# =============================================================================
+
+# Environment & Secrets
+.env
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Type checking & Linting
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Runtime artifacts
+generated_crawlers/
+logs/
+data/
+chroma_data/
+checkpoints.db
+*.log
+
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml

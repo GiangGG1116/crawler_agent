@@ -1,0 +1,56 @@
+"""Shared models package."""
+
+from shared.models.audit import AuditEvent, AuditLog
+from shared.models.request import (
+    AuthConfig,
+    ConstraintsConfig,
+    CrawlMode,
+    CrawlRequest,
+    DataSpec,
+    DataType,
+    OutputConfig,
+    OutputDestination,
+    OutputFormat,
+    ScheduleConfig,
+    ScheduleFrequency,
+    ScopeConfig,
+    TargetInfo,
+    WebType,
+)
+from shared.models.result import (
+    CrawlResult,
+    CrawlStatus,
+    FieldValidation,
+    PhaseUsed,
+    QualityGrade,
+    QualityReport,
+    TemplateFailure,
+    ValidationResult,
+)
+
+__all__ = [
+    "CrawlRequest",
+    "TargetInfo",
+    "DataSpec",
+    "ScopeConfig",
+    "OutputConfig",
+    "ScheduleConfig",
+    "ConstraintsConfig",
+    "AuthConfig",
+    "WebType",
+    "DataType",
+    "CrawlMode",
+    "OutputFormat",
+    "OutputDestination",
+    "ScheduleFrequency",
+    "CrawlResult",
+    "CrawlStatus",
+    "QualityGrade",
+    "PhaseUsed",
+    "ValidationResult",
+    "FieldValidation",
+    "QualityReport",
+    "TemplateFailure",
+    "AuditLog",
+    "AuditEvent",
+]
