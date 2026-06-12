@@ -13,23 +13,32 @@ flowchart TD
 
     Crawler --> Decision{"Template OK?"}
     Decision -- "Yes" --> Processor["Data Processor<br/>Clean + score"]
-    Decision -- "No" --> Agent["Agent Service<br/>Generate custom crawler"]
+    Decision -- "No" --> Agent["Agent Service<br/>Generate custom crawler + Bubblewrap Sandbox"]
     Agent --> Processor
 
     Processor --> Storage["MinIO / Data Lake"]
     Processor --> Result["Redis Job Result"]
     Result --> Gateway
     Gateway --> Client
+
+    %% Observability
+    subgraph Observability
+        Langfuse["Langfuse Server"] --> DB["PostgreSQL"]
+    end
+    Gateway -.-> Langfuse
+    Crawler -.-> Langfuse
+    Agent -.-> Langfuse
+    Processor -.-> Langfuse
 ```
 
 ### Pipeline Phases
 
-| Phase | Service | Description |
-|-------|---------|-------------|
-| **0** | Crawler | Analyze URL → classify web type (STATIC/DYNAMIC/API/PAGINATED) |
-| **1** | Crawler | Try template fast path → validate output via gate checks |
-| **2** | Agent | If template fails → LangGraph AI generates custom crawler code |
-| **3** | Processor | Clean → deduplicate → quality score → persist to data lake |
+| Phase       | Service   | Description                                                     |
+| ----------- | --------- | --------------------------------------------------------------- |
+| **0** | Crawler   | Analyze URL → classify web type (STATIC/DYNAMIC/API/PAGINATED) |
+| **1** | Crawler   | Try template fast path → validate output via gate checks       |
+| **2** | Agent     | If template fails → LangGraph AI generates custom crawler code |
+| **3** | Processor | Clean → deduplicate → quality score → persist to data lake   |
 
 ### Multi-Agent Workflow (LangGraph)
 
@@ -39,39 +48,39 @@ When the template fast path fails, the **Agent Service** triggers a resilient Mu
 flowchart TD
     %% Define the main nodes
     Start["Start crawl request"] --> PreLoad["MemoryManager: Load context from memory"]
-    
-    subgraph MemoryLayers ["6 Integrated Memory Layers"]
+  
+    subgraph MemoryLayers ["Integrated Memory Layers"]
         direction LR
         DM["Domain Memory: Store past crawling experience"]
         EM["Error Patterns: Common errors to avoid"]
         KB["Vector DB ChromaDB: Similar website structures"]
         HF["Human Feedback: Expert feedback"]
     end
-    
+  
     PreLoad -.-> DM
     PreLoad -.-> EM
     PreLoad -.-> KB
     PreLoad -.-> HF
-    
+  
     DM -.-> InitState["Initialize AgentGraphState"]
     EM -.-> InitState
     KB -.-> InitState
     HF -.-> InitState
-    
+  
     InitState --> NodeAnalyze["Node: analyze_site - Analyze DOM structure and generate scraping suggestions"]
-    
+  
     NodeAnalyze --> NodeGen["Node: generate_crawler_code - LLM automatically generates Python crawler code"]
-    
-    NodeGen --> NodeTest["Node: run_crawler_tests - Run crawler tests in an isolated sandbox"]
-    
+  
+    NodeGen --> NodeTest["Node: run_crawler_tests - Run crawler tests in isolated Bubblewrap sandbox"]
+  
     NodeTest --> NodeDecide["Node: decide_next - Evaluate test results"]
-    
+  
     %% Branch decisions
     NodeDecide -- "Success (PASS)" --> PersistSuccess["Save results and knowledge to memory"]
     PersistSuccess --> EndSuccess["END: Complete and move to Phase 3"]
-    
+  
     NodeDecide -- "Failure and attempt < 3" --> NodeAnalyze
-    
+  
     NodeDecide -- "Failure and attempt >= 3" --> NodeAlert["Node: alert_human - Trigger manual intervention"]
     NodeAlert --> PersistFail["Save error type to Error Memory"]
     PersistFail --> EndHuman["END: Wait for human handling"]
@@ -163,6 +172,7 @@ Returns `202 Accepted` immediately. A separate durable worker claims the job
 from Redis and recovers unacknowledged jobs after a worker restart.
 
 **Request:**
+
 ```json
 {
   "target": {"url": "https://example.com"},
@@ -176,6 +186,7 @@ from Redis and recovers unacknowledged jobs after a worker restart.
 ```
 
 **Response (202):**
+
 ```json
 {
   "job_id": "abc-123-def",
