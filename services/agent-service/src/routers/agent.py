@@ -1,8 +1,8 @@
 """Authenticated internal API for the agent workflow."""
 
-from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+
 from shared.utils.logger import get_logger
 from shared.utils.network import UnsafeTargetError, validate_public_http_url_async
 from shared.utils.security import require_internal_service_token

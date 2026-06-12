@@ -6,12 +6,10 @@ When the agent exhausts all retry attempts, this node:
 3. Logs a structured alert for human operators
 4. Optionally notifies via webhook (if configured)
 """
-
-from __future__ import annotations
-
 from typing import Any
 
 from langchain_core.messages import AIMessage
+
 from shared.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -92,6 +90,5 @@ async def alert_human(state: dict[str, Any]) -> dict[str, Any]:
                 )
             ),
         ],
-        "errors": errors
-        + [f"Human review required for {domain}: max retries ({attempt}) exceeded"],
+        "errors": errors + [f"Human review required for {domain}: max retries ({attempt}) exceeded"],
     }

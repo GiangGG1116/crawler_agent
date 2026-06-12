@@ -6,6 +6,7 @@ import os
 import resource
 import shutil
 import signal
+import site
 import sys
 import tempfile
 from pathlib import Path
@@ -13,6 +14,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from langchain_core.messages import AIMessage, HumanMessage
+
 from shared.utils.config import get_settings
 from shared.utils.logger import get_logger
 from src.artifacts import promote_artifact
@@ -84,9 +86,7 @@ async def run_crawler_tests(state: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _failed_result(
-    state: dict[str, Any], result: dict[str, Any], error: str
-) -> dict[str, Any]:
+def _failed_result(state: dict[str, Any], result: dict[str, Any], error: str) -> dict[str, Any]:
     logger.warning("Crawler test failed: %s", error)
     return {
         "test_result": result,
@@ -183,6 +183,7 @@ def _sandbox_command(code_path: Path, tmpdir: str) -> list[str]:
     if launcher.is_file():
         return [str(launcher), str(code_path)]
 
+    python_mounts, sandbox_python = _sandbox_python_runtime()
     command = [
         bwrap,
         "--die-with-parent",
@@ -209,6 +210,7 @@ def _sandbox_command(code_path: Path, tmpdir: str) -> list[str]:
     for path in ("/etc/ssl", "/etc/resolv.conf", "/etc/hosts"):
         if Path(path).exists():
             command += ["--ro-bind", path, path]
+    command += python_mounts
     command += [
         "--ro-bind",
         tmpdir,
@@ -223,10 +225,43 @@ def _sandbox_command(code_path: Path, tmpdir: str) -> list[str]:
         "--setenv",
         "PYTHONDONTWRITEBYTECODE",
         "1",
-        sys.executable,
+        sandbox_python,
         f"/sandbox/{code_path.name}",
     ]
     return command
+
+
+def _sandbox_python_runtime() -> tuple[list[str], str]:
+    """Mount the active Python runtime into stable paths inside Bubblewrap."""
+    base_prefix = Path(sys.base_prefix).resolve()
+    active_prefix = Path(sys.prefix).resolve()
+    site_packages = next(
+        (
+            path
+            for raw_path in site.getsitepackages()
+            if (path := Path(raw_path).resolve()).is_relative_to(active_prefix)
+        ),
+        None,
+    )
+    if site_packages is None:
+        raise RuntimeError("Could not locate active Python site-packages for sandbox")
+
+    python_name = f"python{sys.version_info.major}.{sys.version_info.minor}"
+    sandbox_python = f"/runtime/python/bin/{python_name}"
+    mounts = [
+        "--dir",
+        "/runtime",
+        "--ro-bind",
+        str(base_prefix),
+        "/runtime/python",
+        "--ro-bind",
+        str(site_packages),
+        "/runtime/site-packages",
+        "--setenv",
+        "PYTHONPATH",
+        "/runtime/site-packages",
+    ]
+    return mounts, sandbox_python
 
 
 async def _execute_sandboxed(code: str, timeout: int) -> dict[str, Any]:
@@ -240,19 +275,14 @@ async def _execute_sandboxed(code: str, timeout: int) -> dict[str, Any]:
         safe_env = {
             key: value
             for key, value in os.environ.items()
-            if not any(
-                secret in key.upper()
-                for secret in ("API_KEY", "SECRET", "TOKEN", "PASSWORD", "CREDENTIAL")
-            )
+            if not any(secret in key.upper() for secret in ("API_KEY", "SECRET", "TOKEN", "PASSWORD", "CREDENTIAL"))
             and not key.upper().endswith("_PROXY")
             and key.upper() != "NO_PROXY"
         }
 
         try:
             command = _sandbox_command(code_path, tmpdir)
-            with stdout_path.open("wb") as stdout_file, stderr_path.open(
-                "wb"
-            ) as stderr_file:
+            with stdout_path.open("wb") as stdout_file, stderr_path.open("wb") as stderr_file:
                 proc = await asyncio.create_subprocess_exec(
                     *command,
                     stdout=stdout_file,

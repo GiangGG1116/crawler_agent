@@ -1,6 +1,5 @@
 """Small deterministic embeddings for ChromaDB without runtime downloads."""
 
-from __future__ import annotations
 
 import hashlib
 import math

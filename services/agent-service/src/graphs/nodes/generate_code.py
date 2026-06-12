@@ -1,12 +1,12 @@
 """Generate policy-constrained crawler code via an LLM."""
 
-from __future__ import annotations
 
 import json
 import uuid
 from typing import Any
 
 from langchain_core.messages import AIMessage, HumanMessage
+
 from shared.utils.config import get_settings
 from shared.utils.logger import get_logger
 from src.utils.langfuse_client import get_langfuse_handler
@@ -46,9 +46,7 @@ async def generate_crawler_code(state: dict[str, Any]) -> dict[str, Any]:
         "similar_sites": state.get("similar_sites"),
         "human_feedback": state.get("human_feedback"),
         "template_failure": state.get("template_failure"),
-        "recent_messages": [
-            str(message.content)[:500] for message in state.get("messages", [])[-6:]
-        ],
+        "recent_messages": [str(message.content)[:500] for message in state.get("messages", [])[-6:]],
     }
     prompt = CODE_GENERATION_PROMPT.format(
         url=url,
@@ -79,9 +77,7 @@ async def generate_crawler_code(state: dict[str, Any]) -> dict[str, Any]:
         if violations:
             raise ValueError("; ".join(violations))
 
-        code_dir = (
-            get_settings().generated_crawlers_dir / f"sandbox_{uuid.uuid4().hex[:8]}"
-        )
+        code_dir = get_settings().generated_crawlers_dir / f"sandbox_{uuid.uuid4().hex[:8]}"
         code_dir.mkdir(parents=True, exist_ok=True)
         code_path = code_dir / "runner.py"
         code_path.write_text(code, encoding="utf-8")
@@ -90,9 +86,7 @@ async def generate_crawler_code(state: dict[str, Any]) -> dict[str, Any]:
             "crawler_code_path": str(code_path),
             "messages": [
                 HumanMessage(content=f"Generate crawler for {url}"),
-                AIMessage(
-                    content=f"Generated and policy-checked {len(code)} characters"
-                ),
+                AIMessage(content=f"Generated and policy-checked {len(code)} characters"),
             ],
         }
     except Exception as exc:

@@ -16,7 +16,6 @@ Memory layers used:
   6. Human Feedback — expert corrections and hints
 """
 
-from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
@@ -24,6 +23,7 @@ from urllib.parse import urlparse
 
 from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.graph import END, StateGraph
+
 from shared.utils.config import Settings
 from shared.utils.logger import get_logger
 from src.graphs.state import AgentGraphState
@@ -38,9 +38,7 @@ class CustomAgentGraph:
     Integrates all 6 memory layers and a durable checkpointer.
     """
 
-    def __init__(
-        self, settings: Settings, memory_manager: MemoryManager, checkpointer: Any
-    ):
+    def __init__(self, settings: Settings, memory_manager: MemoryManager, checkpointer: Any):
         self._settings = settings
         self._memory = memory_manager
         self._graph = self._build_graph(checkpointer)
@@ -191,9 +189,7 @@ class CustomAgentGraph:
         }
         artifact_path = domain_context.get("artifact_path")
         if artifact_path:
-            approved_root = (
-                self._settings.generated_crawlers_dir / "approved"
-            ).resolve()
+            approved_root = (self._settings.generated_crawlers_dir / "approved").resolve()
             cached_path = Path(artifact_path).resolve()
             if cached_path.is_file() and cached_path.is_relative_to(approved_root):
                 initial_state["crawler_code"] = cached_path.read_text(encoding="utf-8")
@@ -273,7 +269,5 @@ class CustomAgentGraph:
 
     async def get_state(self, request_id: str) -> dict[str, Any]:
         """Return the latest durable state for an agent run."""
-        snapshot = await self._graph.aget_state(
-            {"configurable": {"thread_id": f"crawl:{request_id}"}}
-        )
+        snapshot = await self._graph.aget_state({"configurable": {"thread_id": f"crawl:{request_id}"}})
         return dict(snapshot.values) if snapshot and snapshot.values else {}

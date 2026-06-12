@@ -1,6 +1,5 @@
 """Lifecycle management for generated crawler artifacts."""
 
-from __future__ import annotations
 
 import hashlib
 import json
@@ -51,9 +50,7 @@ def promote_artifact(
 def cleanup_generated_artifacts(settings: Settings) -> int:
     """Delete stale unapproved generation directories."""
     root = settings.generated_crawlers_dir
-    cutoff = datetime.now(UTC) - timedelta(
-        hours=settings.agent_generated_artifact_ttl_hours
-    )
+    cutoff = datetime.now(UTC) - timedelta(hours=settings.agent_generated_artifact_ttl_hours)
     removed = 0
     for path in root.glob("sandbox_*"):
         try:

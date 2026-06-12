@@ -1,6 +1,5 @@
 """Persistent memory subsystem for the crawler agent."""
 
-from __future__ import annotations
 
 import asyncio
 import json
@@ -57,9 +56,7 @@ class MemoryManager:
         values = await self._redis.lrange(key, 0, -1)
         return [json.loads(value) for value in values]
 
-    async def _append_list(
-        self, key: str, value: dict[str, Any], *, limit: int, ttl_seconds: int
-    ) -> None:
+    async def _append_list(self, key: str, value: dict[str, Any], *, limit: int, ttl_seconds: int) -> None:
         if self._redis is None:
             entries = self._fallback.setdefault(key, [])
             entries.append(value)
@@ -147,9 +144,7 @@ class MemoryManager:
         else:
             await self._redis.delete(key)
 
-    async def get_similar_sites(
-        self, domain: str, data_type: str = ""
-    ) -> list[dict[str, Any]]:
+    async def get_similar_sites(self, domain: str, data_type: str = "") -> list[dict[str, Any]]:
         return await self._vector_kb.query(domain, data_type)
 
     async def get_human_feedback(self, domain: str) -> list[dict[str, Any]]:
@@ -205,9 +200,7 @@ class VectorKnowledgeBase:
     def available(self) -> bool:
         return self._collection is not None
 
-    async def index(
-        self, domain: str, data_type: str, strategy: dict[str, Any]
-    ) -> None:
+    async def index(self, domain: str, data_type: str, strategy: dict[str, Any]) -> None:
         if self._collection is None:
             return
         document = json.dumps(
@@ -230,9 +223,7 @@ class VectorKnowledgeBase:
         except Exception:
             logger.warning("Failed to index strategy for %s", domain, exc_info=True)
 
-    async def query(
-        self, domain: str, data_type: str = "", n_results: int = 3
-    ) -> list[dict[str, Any]]:
+    async def query(self, domain: str, data_type: str = "", n_results: int = 3) -> list[dict[str, Any]]:
         if self._collection is None:
             return []
         try:
@@ -248,7 +239,5 @@ class VectorKnowledgeBase:
             documents = (results.get("documents") or [[]])[0]
             return [json.loads(document) for document in documents]
         except Exception:
-            logger.warning(
-                "Failed to query similar strategies for %s", domain, exc_info=True
-            )
+            logger.warning("Failed to query similar strategies for %s", domain, exc_info=True)
             return []

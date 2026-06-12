@@ -1,13 +1,13 @@
 """Configured LLM clients with retry and provider fallback."""
 
-from __future__ import annotations
 
 from functools import lru_cache
 from typing import Any
 
+from tenacity import AsyncRetrying, stop_after_attempt, wait_exponential
+
 from shared.utils.config import LLMProvider, get_settings
 from shared.utils.logger import get_logger
-from tenacity import AsyncRetrying, stop_after_attempt, wait_exponential
 
 logger = get_logger(__name__)
 
@@ -48,11 +48,7 @@ def get_llm():
 def _providers() -> list[LLMProvider]:
     settings = get_settings()
     primary = settings.default_llm_provider
-    secondary = (
-        LLMProvider.OPENAI
-        if primary == LLMProvider.ANTHROPIC
-        else LLMProvider.ANTHROPIC
-    )
+    secondary = LLMProvider.OPENAI if primary == LLMProvider.ANTHROPIC else LLMProvider.ANTHROPIC
     providers = [primary]
     if secondary == LLMProvider.OPENAI and settings.openai_api_key:
         providers.append(secondary)
@@ -83,7 +79,5 @@ async def ainvoke_llm(
                     return await model.ainvoke(messages, config=config or {})
         except Exception as exc:
             errors.append(f"{provider.value}: {exc}")
-            logger.warning(
-                "LLM provider %s failed; trying fallback", provider.value, exc_info=True
-            )
+            logger.warning("LLM provider %s failed; trying fallback", provider.value, exc_info=True)
     raise RuntimeError("All configured LLM providers failed: " + "; ".join(errors))

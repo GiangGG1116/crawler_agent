@@ -1,24 +1,20 @@
 """Input/Output models for Agent execution."""
 
-from __future__ import annotations
 
 import json
 import uuid
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
+
 from shared.utils.network import validate_http_url_syntax
 
 
 class AgentRunRequest(BaseModel):
     """Input contract for POST /agent/run."""
 
-    request_id: str = Field(
-        default_factory=lambda: str(uuid.uuid4()), min_length=1, max_length=128
-    )
-    url: str = Field(
-        ..., min_length=8, max_length=2048, description="Public HTTP(S) target URL"
-    )
+    request_id: str = Field(default_factory=lambda: str(uuid.uuid4()), min_length=1, max_length=128)
+    url: str = Field(..., min_length=8, max_length=2048, description="Public HTTP(S) target URL")
     data_type: str = Field(default="articles", min_length=1, max_length=64)
     required_fields: list[str] = Field(default_factory=list, max_length=100)
     max_pages: int = Field(default=10, ge=1, le=1000)
@@ -37,18 +33,14 @@ class AgentRunRequest(BaseModel):
     @field_validator("required_fields")
     @classmethod
     def validate_required_fields(cls, values: list[str]) -> list[str]:
-        cleaned = list(
-            dict.fromkeys(field.strip() for field in values if field.strip())
-        )
+        cleaned = list(dict.fromkeys(field.strip() for field in values if field.strip()))
         if any(len(field) > 128 for field in cleaned):
             raise ValueError("Required field names must be 128 characters or fewer")
         return cleaned
 
     @field_validator("initial_analysis", "template_failure")
     @classmethod
-    def validate_context_size(
-        cls, value: dict[str, Any] | None
-    ) -> dict[str, Any] | None:
+    def validate_context_size(cls, value: dict[str, Any] | None) -> dict[str, Any] | None:
         if value is not None and len(json.dumps(value, default=str)) > 100_000:
             raise ValueError("Agent context payload must be 100 KB or smaller")
         return value

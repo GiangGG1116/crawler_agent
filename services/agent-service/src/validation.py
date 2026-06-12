@@ -1,6 +1,5 @@
 """Validation gates for LLM-generated crawler code and records."""
 
-from __future__ import annotations
 
 import ast
 import json
@@ -54,10 +53,7 @@ def validate_generated_code(code: str) -> list[str]:
     has_scrape = False
 
     for node in tree.body:
-        if (
-            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-            and node.name == "scrape"
-        ):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == "scrape":
             has_scrape = True
         if not isinstance(
             node,
@@ -75,16 +71,12 @@ def validate_generated_code(code: str) -> list[str]:
                 and isinstance(node.value, ast.Constant)
                 and isinstance(node.value.value, str)
             ):
-                violations.append(
-                    f"Top-level statement is not allowed: {type(node).__name__}"
-                )
+                violations.append(f"Top-level statement is not allowed: {type(node).__name__}")
         if isinstance(node, ast.Expr) and not (
             isinstance(node.value, ast.Constant) and isinstance(node.value.value, str)
         ):
             violations.append("Top-level executable expressions are not allowed")
-        if isinstance(
-            node, (ast.For, ast.AsyncFor, ast.While, ast.With, ast.AsyncWith, ast.Try)
-        ):
+        if isinstance(node, (ast.For, ast.AsyncFor, ast.While, ast.With, ast.AsyncWith, ast.Try)):
             violations.append("Top-level executable control flow is not allowed")
         if isinstance(node, (ast.Assign, ast.AnnAssign)):
             value = node.value
@@ -92,9 +84,7 @@ def validate_generated_code(code: str) -> list[str]:
                 try:
                     ast.literal_eval(value)
                 except (ValueError, TypeError):
-                    violations.append(
-                        "Top-level assignments must contain literal values only"
-                    )
+                    violations.append("Top-level assignments must contain literal values only")
 
     if not has_scrape:
         violations.append("Generated code must define a scrape function")
@@ -108,11 +98,7 @@ def validate_generated_code(code: str) -> list[str]:
             root = (node.module or "").split(".", 1)[0]
             if root in _BANNED_IMPORT_ROOTS:
                 violations.append(f"Import is not allowed: {node.module}")
-        elif (
-            isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Name)
-            and node.func.id in _BANNED_CALLS
-        ):
+        elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in _BANNED_CALLS:
             violations.append(f"Call is not allowed: {node.func.id}")
         elif isinstance(node, ast.Attribute) and node.attr.startswith("__"):
             violations.append(f"Dunder attribute access is not allowed: {node.attr}")

@@ -4,7 +4,6 @@ Provides lazy initialization and graceful fallback when Langfuse is
 unavailable or not configured.
 """
 
-from __future__ import annotations
 
 from shared.utils.config import get_settings
 from shared.utils.logger import get_logger

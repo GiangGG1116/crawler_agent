@@ -1,12 +1,10 @@
 """Analyze a public website safely for custom crawler generation."""
-
-from __future__ import annotations
-
 from typing import Any
 from urllib.parse import urlparse
 
 import httpx
 from langchain_core.messages import AIMessage, HumanMessage
+
 from shared.utils.logger import get_logger
 from shared.utils.network import (
     guard_playwright_route,
@@ -94,9 +92,7 @@ HTML excerpt:
             "analysis": analysis,
             "messages": [
                 HumanMessage(content=f"Analyze site: {url}"),
-                AIMessage(
-                    content=f"Analysis complete. Web type: {analysis['web_type']}"
-                ),
+                AIMessage(content=f"Analysis complete. Web type: {analysis['web_type']}"),
             ],
         }
     except Exception as exc:
@@ -122,9 +118,7 @@ async def _fetch_rendered_html(url: str, timeout_seconds: int) -> str:
         async with async_playwright() as playwright:
             browser = await playwright.chromium.launch(
                 headless=True,
-                args=[
-                    f"--host-resolver-rules=MAP {hostname} {addresses[0]}, EXCLUDE localhost"
-                ],
+                args=[f"--host-resolver-rules=MAP {hostname} {addresses[0]}, EXCLUDE localhost"],
             )
             try:
                 page = await browser.new_page()
@@ -133,19 +127,18 @@ async def _fetch_rendered_html(url: str, timeout_seconds: int) -> str:
                     await guard_playwright_route(route, {hostname})
 
                 await page.route("**/*", handle_route)
-                await page.goto(
-                    url, wait_until="networkidle", timeout=timeout_seconds * 1000
-                )
+                await page.goto(url, wait_until="networkidle", timeout=timeout_seconds * 1000)
                 return await page.content()
             finally:
                 await browser.close()
     except Exception:
-        logger.warning(
-            "Playwright failed for %s; falling back to httpx", url, exc_info=True
-        )
-        async with httpx.AsyncClient(
-            timeout=timeout_seconds, trust_env=False
-        ) as client:
-            response = await safe_async_request(client, "GET", url)
+        logger.warning("Playwright failed for %s; falling back to httpx", url, exc_info=True)
+        async with httpx.AsyncClient(timeout=timeout_seconds, trust_env=False) as client:
+            response = await safe_async_request(
+                client,
+                "GET",
+                url,
+                allowed_hosts={hostname},
+            )
             response.raise_for_status()
             return response.text

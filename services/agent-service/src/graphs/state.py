@@ -1,6 +1,5 @@
 """Agent Graph State — defines the shared state for LangGraph workflow."""
 
-from __future__ import annotations
 
 from typing import Any
 

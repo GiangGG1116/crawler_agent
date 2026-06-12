@@ -1,6 +1,5 @@
 """Lifecycle-managed durable LangGraph checkpointers."""
 
-from __future__ import annotations
 
 from contextlib import AsyncExitStack
 from typing import Any

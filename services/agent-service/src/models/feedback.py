@@ -1,6 +1,5 @@
 """Human Feedback models."""
 
-from __future__ import annotations
 
 import json
 from typing import Any, Literal
@@ -20,11 +19,7 @@ class HumanFeedbackRequest(BaseModel):
     @classmethod
     def validate_domain(cls, value: str) -> str:
         domain = value.strip().lower()
-        if (
-            "://" in domain
-            or "/" in domain
-            or any(character.isspace() for character in domain)
-        ):
+        if "://" in domain or "/" in domain or any(character.isspace() for character in domain):
             raise ValueError("Domain must be a hostname, optionally including a port")
         return domain
 

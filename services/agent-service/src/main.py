@@ -1,12 +1,12 @@
 """Agent Service FastAPI application."""
 
-from __future__ import annotations
 
 import time
 from contextlib import asynccontextmanager
 
 import redis.asyncio as aioredis
 from fastapi import FastAPI, Response, status
+
 from shared.utils.config import get_settings
 from shared.utils.exceptions import register_exception_handlers
 from shared.utils.logger import get_logger
@@ -34,9 +34,7 @@ async def lifespan(app: FastAPI):
     except Exception:
         if settings.app_env.lower() == "production":
             raise
-        logger.warning(
-            "Redis unavailable; using development memory fallback", exc_info=True
-        )
+        logger.warning("Redis unavailable; using development memory fallback", exc_info=True)
         await redis_client.aclose()
         redis_client = None
 
@@ -87,9 +85,7 @@ async def readiness(response: Response):
     memory = await app.state.memory_manager.healthcheck()
     checkpoint = app.state.checkpoint_manager
     llm_configured = bool(
-        settings.openai_api_key
-        if settings.default_llm_provider.value == "openai"
-        else settings.anthropic_api_key
+        settings.openai_api_key if settings.default_llm_provider.value == "openai" else settings.anthropic_api_key
     )
     ready = memory["redis"] and checkpoint.durable and llm_configured
     if not ready:
@@ -101,3 +97,9 @@ async def readiness(response: Response):
         "checkpoint_durable": checkpoint.durable,
         "llm_configured": llm_configured,
     }
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run("src.main:app", host="127.0.0.1", port=8007, log_level="debug")

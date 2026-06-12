@@ -6,11 +6,11 @@ Evaluates test results and decides whether to:
   - MAX_RETRIES: Stop and alert human
 """
 
-from __future__ import annotations
 
 from typing import Any
 
 from langchain_core.messages import AIMessage
+
 from shared.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -36,9 +36,7 @@ async def decide_next(state: dict[str, Any]) -> dict[str, Any]:
             "status": "success",
             "attempt": attempt + 1,
             "messages": [
-                AIMessage(
-                    content=f"Success! Collected {len(records)} records in {attempt + 1} attempt(s)."
-                ),
+                AIMessage(content=f"Success! Collected {len(records)} records in {attempt + 1} attempt(s)."),
             ],
         }
 
@@ -52,12 +50,9 @@ async def decide_next(state: dict[str, Any]) -> dict[str, Any]:
         return {
             "status": "max_retries_exceeded",
             "attempt": attempt + 1,
-            "errors": state.get("errors", [])
-            + [f"Max retries ({max_retries}) exceeded without successful crawl"],
+            "errors": state.get("errors", []) + [f"Max retries ({max_retries}) exceeded without successful crawl"],
             "messages": [
-                AIMessage(
-                    content=f"Failed after {max_retries} attempts. Human intervention needed."
-                ),
+                AIMessage(content=f"Failed after {max_retries} attempts. Human intervention needed."),
             ],
         }
 
@@ -74,8 +69,6 @@ async def decide_next(state: dict[str, Any]) -> dict[str, Any]:
         "status": "retry",
         "attempt": attempt + 1,
         "messages": [
-            AIMessage(
-                content=f"Attempt {attempt + 1} failed: {error_msg}. Retrying..."
-            ),
+            AIMessage(content=f"Attempt {attempt + 1} failed: {error_msg}. Retrying..."),
         ],
     }

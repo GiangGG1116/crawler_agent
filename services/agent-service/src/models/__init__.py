@@ -3,7 +3,6 @@
 These are the API contracts owned by agent-service.
 """
 
-from __future__ import annotations
 
 from src.models.agent import AgentResponse, AgentRunRequest
 from src.models.analysis import SiteAnalysis

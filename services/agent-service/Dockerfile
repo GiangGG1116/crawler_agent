@@ -1,5 +1,12 @@
 FROM python:3.11-slim
 
+ARG PIP_INDEX_URL=https://pypi.org/simple
+
+ENV PIP_INDEX_URL=${PIP_INDEX_URL} \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_DEFAULT_TIMEOUT=120 \
+    PIP_RETRIES=10
+
 WORKDIR /app
 
 # System dependencies for Playwright
